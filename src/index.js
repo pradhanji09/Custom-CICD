@@ -1,6 +1,10 @@
+const dbPlugin = require("./plugins/db");
 const fastify = require("fastify")({
   logger: true,
 });
+
+//PLUGINS
+fastify.register(dbPlugin);
 
 fastify.get("/", async (request, reply) => {
   return { status: "ok" };
@@ -8,7 +12,7 @@ fastify.get("/", async (request, reply) => {
 
 const start = async () => {
   try {
-    await fastify.listen({ port: 3000 });
+    await fastify.listen({ port: 3000, host: "0.0.0.0" });
   } catch (err) {
     fastify.log.error(err, "Error occurred during server start:");
     process.exit(1);
