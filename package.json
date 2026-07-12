@@ -1,0 +1,22 @@
+{
+  "name": "cicd-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "start:dev": "node --watch src/index.js",
+    "migrate:make": "knex migrate:make",
+    "migrate:latest": "knex migrate:latest",
+    "migrate:rollback": "knex migrate:rollback"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fastify": "^5.10.0",
+    "fastify-plugin": "^6.0.0",
+    "knex": "^3.3.0",
+    "sqlite3": "^6.0.1"
+  }
+}
