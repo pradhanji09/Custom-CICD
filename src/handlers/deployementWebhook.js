@@ -1,8 +1,12 @@
-function deployementWebhookHandler(fastify) {
+function deploymentWebhookHandler(fastify) {
   return async function (request, reply) {
-    const { body } = request;
-    return { data: body };
+    const { body, rawBody } = request;
+
+    return {
+      parsedData: body,
+      rawText: rawBody,
+    };
   };
 }
 
-module.exports = deployementWebhookHandler;
+module.exports = deploymentWebhookHandler;

@@ -1,4 +1,4 @@
-const deployementWebhook = require("./deployementWebhook");
+const deploymentWebhook = require("./deployementWebhook");
 module.exports = {
-  deployementWebhook,
+  deploymentWebhook,
 };
