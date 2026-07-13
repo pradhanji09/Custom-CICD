@@ -1,10 +1,12 @@
 const dbPlugin = require("./plugins/db");
+const deployementRoutes = require("./routes");
 const fastify = require("fastify")({
   logger: true,
 });
 
 //PLUGINS
 fastify.register(dbPlugin);
+fastify.register(deployementRoutes, { prefix: "v1" });
 
 fastify.get("/", async (request, reply) => {
   return { status: "ok" };
