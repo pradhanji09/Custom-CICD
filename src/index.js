@@ -1,9 +1,8 @@
-const dbPlugin = require("./plugins/db");
-const errorHandlerPlugin = require("./plugins/errorHandler");
-const { responseLoggerPlugin } = require("./plugins/logging");
+const { responseLoggerPlugin } = require("./commons/plugins/logging");
+const dbPlugin = require("./commons/plugins/db");
+const errorHandlerPlugin = require("./commons/plugins/errorHandler");
 const deploymentRoutes = require("./routes");
 const crypto = require("crypto");
-const { LogController } = require("fastify");
 
 const fastify = require("fastify")({
   logger: {
@@ -13,9 +12,9 @@ const fastify = require("fastify")({
       process.env.NODE_ENV !== "PROD"
         ? {
             target: "pino-pretty",
-            // options: {
-            //   ignore: "pid,hostname",
-            // },
+            options: {
+              ignore: "pid",
+            },
           }
         : undefined,
   },

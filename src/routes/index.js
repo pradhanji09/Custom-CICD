@@ -1,6 +1,6 @@
 const handlers = require("../handlers");
-const { verifySignature } = require("../hooks/verifySignature");
-const contentTypeParser = require("../plugins/contentParser");
+const contentTypeParser = require("../commons/plugins/contentParser");
+const { verifySignature } = require("../commons/hooks/verifySignature");
 
 module.exports = async (fastify) => {
   fastify.register(contentTypeParser);

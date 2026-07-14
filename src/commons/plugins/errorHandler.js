@@ -1,6 +1,6 @@
 const fp = require("fastify-plugin");
-const { SYSTEM_ERROR_CODES } = require("../commons/constants/errorsConstants");
-const formatValidationMessage = require("../commons/helpers");
+const { SYSTEM_ERROR_CODES } = require("../constants/errorsConstants");
+const formatValidationMessage = require("../helpers");
 
 function errorHandlerPlugin(fastify, opts, done) {
   fastify.setErrorHandler((err, request, reply) => {
