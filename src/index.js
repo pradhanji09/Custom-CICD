@@ -1,11 +1,22 @@
 const dbPlugin = require("./plugins/db");
+const errorHandlerPlugin = require("./plugins/errorHandler");
 const deploymentRoutes = require("./routes");
+const crypto = require("crypto");
+
 const fastify = require("fastify")({
-  logger: true,
+  logger: {
+    level: process.env.LOG_LEVEL || "info",
+    redact: ["req.headers.authorization", "req.body.password"],
+    transport:
+      process.env.NODE_ENV === "DEV" ? { target: "pino-pretty" } : undefined,
+    requestIdHeader: "x-request-id",
+    genReqId: (req) => req.headers["x-request-id"] || crypto.randomUUID(),
+  },
 });
 
 //PLUGINS
 fastify.register(dbPlugin);
+fastify.register(errorHandlerPlugin);
 fastify.register(deploymentRoutes, { prefix: "/deployments" });
 
 const start = async () => {
