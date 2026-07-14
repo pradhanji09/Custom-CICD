@@ -1,11 +1,9 @@
 const crypto = require("crypto");
+const Errors = require("../commons/errors/errorCatalog");
 
 function verifySignature(request, reply) {
   const signatureHeader = request.headers["x-hub-signature-256"];
-  if (!signatureHeader) {
-    request.log.warn("Missing signature header");
-    return reply.code(401).send({ error: "Unauthorized: Missing Signature" });
-  }
+  if (!signatureHeader) throw Errors.SignatureMissing();
 
   const incomingSignature = signatureHeader.replace("sha256=", "");
   const expectedSignature = crypto
@@ -19,10 +17,8 @@ function verifySignature(request, reply) {
   if (
     trustedBuffer.length !== untrustedBuffer.length ||
     !crypto.timingSafeEqual(trustedBuffer, untrustedBuffer)
-  ) {
-    request.log.warn("Invalid signature match");
-    return reply.code(401).send({ error: "Unauthorized: Invalid Signature" });
-  }
+  )
+    throw Errors.InvalidSignature();
 }
 
 module.exports = {

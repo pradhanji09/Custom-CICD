@@ -1,3 +1,4 @@
+const fp = require("fastify-plugin");
 const { SYSTEM_ERROR_CODES } = require("../commons/constants/errorsConstants");
 const formatValidationMessage = require("../commons/helpers");
 
@@ -26,6 +27,7 @@ function errorHandlerPlugin(fastify, opts, done) {
     const statusCode = err.statusCode || 500;
     const errorCode = err.errorCode || "INTERNAL_ERROR";
     const message = err.isOperational ? err.message : "Something went wrong";
+    reply.errorCode = errorCode;
 
     if (!err.isOperational) {
       request.log.error(err);
@@ -44,4 +46,4 @@ function errorHandlerPlugin(fastify, opts, done) {
   done();
 }
 
-module.exports = errorHandlerPlugin;
+module.exports = fp(errorHandlerPlugin);

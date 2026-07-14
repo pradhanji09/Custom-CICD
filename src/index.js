@@ -1,18 +1,30 @@
 const dbPlugin = require("./plugins/db");
 const errorHandlerPlugin = require("./plugins/errorHandler");
+const { responseLoggerPlugin } = require("./plugins/logging");
 const deploymentRoutes = require("./routes");
 const crypto = require("crypto");
+const { LogController } = require("fastify");
 
 const fastify = require("fastify")({
   logger: {
     level: process.env.LOG_LEVEL || "info",
     redact: ["req.headers.authorization", "req.body.password"],
     transport:
-      process.env.NODE_ENV === "DEV" ? { target: "pino-pretty" } : undefined,
-    requestIdHeader: "x-request-id",
-    genReqId: (req) => req.headers["x-request-id"] || crypto.randomUUID(),
+      process.env.NODE_ENV !== "PROD"
+        ? {
+            target: "pino-pretty",
+            // options: {
+            //   ignore: "pid,hostname",
+            // },
+          }
+        : undefined,
   },
+  requestIdHeader: "x-request-id",
+  genReqId: (req) => req.headers["x-request-id"] || crypto.randomUUID(),
 });
+
+//HOOKS
+fastify.addHook("onResponse", responseLoggerPlugin);
 
 //PLUGINS
 fastify.register(dbPlugin);
