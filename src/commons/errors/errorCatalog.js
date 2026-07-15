@@ -13,6 +13,12 @@ const Errors = {
       message: "Invalid Signature",
       errorCode: "INVALID_SIGNATURE",
     }),
+
+  UnkownDeploymentType: (type) =>
+    CustomError.badRequest({
+      message: `Unkown deployment type: ${type}`,
+      errorCode: "UNKOWN_DEPLOYMENT_TYPE",
+    }),
 };
 
 module.exports = Errors;

@@ -15,9 +15,10 @@ async function deploymentWebhookHandler(request, reply) {
 
   // Handle Branch Deleted
   if (deleted) {
-    return reply
-      .code(200)
-      .send({ message: "Deleted branch", status: "success" });
+    return reply.code(200).send({
+      status: "ignored",
+      message: "Branch deletion event, no deployment triggered",
+    });
   }
 
   const result = await deploymentWebhookService({
@@ -25,7 +26,7 @@ async function deploymentWebhookHandler(request, reply) {
     commitHash,
     branch: ref.split("/")[2],
     pusherEmail,
-    message: commits[0].message,
+    message: commits[0]?.message,
   });
 
   return reply.code(200).send(result);
