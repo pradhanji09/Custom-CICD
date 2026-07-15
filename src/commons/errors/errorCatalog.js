@@ -3,7 +3,7 @@ const CutomError = require("./customError");
 
 const Errors = {
   SignatureMissing: () =>
-    CutomError.badRequest({
+    CustomError.badRequest({
       message: "Missing signature header",
       errorCode: "MISSING_SIGNATURE_HEADER",
     }),

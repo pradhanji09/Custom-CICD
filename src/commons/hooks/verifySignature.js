@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const Errors = require("../commons/errors/errorCatalog");
+const Errors = require("../errors/errorCatalog");
 
 function verifySignature(request, reply) {
   const signatureHeader = request.headers["x-hub-signature-256"];
