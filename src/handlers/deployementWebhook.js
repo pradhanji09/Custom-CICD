@@ -7,7 +7,6 @@ async function deploymentWebhookHandler(request, reply) {
     repoName,
     branch,
     signature,
-    rawBody: request.rawBody,
   });
 
   return reply.code(200).send(result);
