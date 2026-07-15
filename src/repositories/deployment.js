@@ -7,8 +7,8 @@ const { DEPLOYMENT, DEPLOYMENT_LOGS } = require("../commons/model");
 function deploymentRepo(knex) {
   async function createDeployment({ input }) {
     const query = knex(DEPLOYMENT.NAME)
-      .returning([DEPLOYMENT.COLUMNS.DEPLOYMENT_ID])
-      .insert(input);
+      .insert(input)
+      .returning([DEPLOYMENT.COLUMNS.DEPLOYMENT_ID]);
 
     const result = await query;
     return result[0];
@@ -33,8 +33,17 @@ function deploymentRepo(knex) {
     if (filter) {
       query.where(filter);
     }
-    const result = await query.update(input);
-    return result;
+    const result = await query
+      .update(input)
+      .returning([
+        DEPLOYMENT.COLUMNS.DEPLOYMENT_ID,
+        DEPLOYMENT.COLUMNS.STATUS,
+        DEPLOYMENT.COLUMNS.ENVIRONMENT,
+        DEPLOYMENT.COLUMNS.PROJECT,
+        DEPLOYMENT.COLUMNS.TRIGGER_TYPE,
+        DEPLOYMENT.COLUMNS.COMPLETED_AT,
+      ]);
+    return result[0];
   }
 
   async function getDeploymentWithLogs({ input }) {

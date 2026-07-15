@@ -1,61 +1,92 @@
+const {
+  DEPLOYMENT_STATUS,
+  TRIGGER_TYPE,
+} = require("../commons/constants/constants");
 const configRegistry = require("../config/configRegistry");
 const deploymentStrategyFactory = require("../engine/deploymentStrategyFactory");
 const lockManager = require("../engine/lockmanager");
+const deploymentRepo = require("../repositories/deployment");
 
-async function deploymentWebhookService({
-  repoName,
-  commitHash,
-  branch,
-  pusherEmail,
-  message,
-}) {
+async function deploymentWebhookService(
+  knex,
+  { repoName, commitHash, branch, pusherEmail, message },
+) {
+  const { createDeployment, updateDeployment } = deploymentRepo(knex);
+
   const repoConfig = configRegistry.getProjectConfig(repoName);
-  if (!repoConfig)
+  if (!repoConfig) {
     return {
-      status: "skipped",
+      status: DEPLOYMENT_STATUS.SKIPPED,
       message: `No config found for repo ${repoName}`,
     };
+  }
 
-  const branchEnviroment = repoConfig.environments.find(
+  const branchEnvironment = repoConfig.environments.find(
     (env) => env.branch === branch,
   );
 
-  if (!branchEnviroment)
+  if (!branchEnvironment) {
     return {
-      status: "skipped",
-      message: `This barnch ${branch} is not deployable`,
+      status: DEPLOYMENT_STATUS.SKIPPED,
+      message: `Branch ${branch} is not deployable`,
     };
+  }
 
   const isLockAcquired = lockManager.acquireLock(`${repoName}:${branch}`);
   if (!isLockAcquired) {
     return {
-      status: "skipped",
-      message: `deployment is already in progress for ${repoName}:${branch}`,
+      status: DEPLOYMENT_STATUS.IN_PROGRESS,
+      message: `Deployment already in progress for ${repoName}:${branch}`,
     };
   }
 
+  const { deployment_id } = await createDeployment({
+    input: {
+      project: repoName,
+      environment: branchEnvironment.environment_name,
+      branch,
+      commit_hash: commitHash,
+      deployment_type: branchEnvironment.deployment_type,
+      trigger_type: TRIGGER_TYPE.WEBHOOK,
+      status: DEPLOYMENT_STATUS.IN_PROGRESS,
+    },
+  });
+
   try {
     const strategy = deploymentStrategyFactory(
-      branchEnviroment.deployment_type,
+      branchEnvironment.deployment_type,
     );
 
     const result = await strategy({
-      steps: branchEnviroment.steps,
+      steps: branchEnvironment.steps,
       context: {
-        deployPath: branchEnviroment.deploy_path,
-        ssh: branchEnviroment.ssh,
-        healthCheck: branchEnviroment.health_check,
+        deployPath: branchEnvironment.deploy_path,
+        ssh: branchEnvironment.ssh,
+        healthCheck: branchEnvironment.health_check,
       },
-      metadata: { commitHash, pusherEmail, message },
+      metadata: {
+        commitHash,
+        pusherEmail,
+        message,
+        deploymentId: deployment_id,
+      },
     });
 
-    return { status: "success", result };
+    return await updateDeployment({
+      filter: { deployment_id },
+      input: {
+        status: DEPLOYMENT_STATUS.SUCCESS,
+        completed_at: new Date().toISOString(),
+      },
+    });
   } catch (error) {
-    //TODO: throw the error to the github api
-    return {
-      status: "failed",
-      message: error.message,
-    };
+    return await updateDeployment({
+      filter: { deployment_id },
+      input: {
+        status: DEPLOYMENT_STATUS.FAILED,
+        completed_at: new Date().toISOString(),
+      },
+    });
   } finally {
     lockManager.releaseLock(`${repoName}:${branch}`);
   }

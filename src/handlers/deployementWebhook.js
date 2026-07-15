@@ -10,6 +10,8 @@ async function deploymentWebhookHandler(request, reply) {
     commits = [],
   } = request.body;
 
+  const { knex } = request.server;
+
   const repoName = repository?.name;
   const pusherEmail = pusher?.email;
 
@@ -21,7 +23,7 @@ async function deploymentWebhookHandler(request, reply) {
     });
   }
 
-  const result = await deploymentWebhookService({
+  const result = await deploymentWebhookService(knex, {
     repoName,
     commitHash,
     branch: ref.split("/")[2],
@@ -33,8 +35,3 @@ async function deploymentWebhookHandler(request, reply) {
 }
 
 module.exports = deploymentWebhookHandler;
-
-/*
-- extract reponame, branch, commit hash, pusher,  
-- we will forward to SSH or LOCAL as per their config
-*/

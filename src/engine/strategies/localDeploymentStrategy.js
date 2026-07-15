@@ -1,7 +1,7 @@
 async function localDeploymentStrategy({
   steps,
   context: { deployPath, healthCheck },
-  metadata: { commitHash, pusherEmail, message },
+  metadata: { commitHash, pusherEmail, message, deploymentId },
 }) {
   try {
     return {
@@ -11,8 +11,11 @@ async function localDeploymentStrategy({
       commitHash,
       pusherEmail,
       message,
+      deploymentId,
     };
-  } catch (error) {}
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 }
 
 module.exports = localDeploymentStrategy;
