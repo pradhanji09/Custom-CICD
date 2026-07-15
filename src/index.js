@@ -13,7 +13,8 @@ const fastify = require("fastify")({
         ? {
             target: "pino-pretty",
             options: {
-              ignore: "pid",
+              ignore: "pid,hostname",
+              colorize: false,
             },
           }
         : undefined,

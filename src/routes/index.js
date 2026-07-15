@@ -1,6 +1,7 @@
 const handlers = require("../handlers");
 const contentTypeParser = require("../commons/plugins/contentParser");
 const { verifySignature } = require("../commons/hooks/verifySignature");
+const isPushEventType = require("../commons/hooks/isPushEvent");
 
 module.exports = async (fastify) => {
   fastify.register(contentTypeParser);
@@ -8,7 +9,7 @@ module.exports = async (fastify) => {
   fastify.route({
     method: "POST",
     url: "/webhook",
-    // preHandler: [verifySignature],
+    // preHandler: [isPushEventType, verifySignature],
     handler: handlers.deploymentWebhook,
   });
 };

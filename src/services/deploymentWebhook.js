@@ -1,3 +1,9 @@
-async function deploymentWebhookService({ repoName, branch, signature }) {}
+async function deploymentWebhookService({
+  repoName,
+  commitHash,
+  branch,
+  pusherEmail,
+  message,
+}) {}
 
 module.exports = deploymentWebhookService;
