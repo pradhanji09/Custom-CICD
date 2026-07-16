@@ -64,12 +64,12 @@ async function deploymentWebhookService(
         ssh: branchEnvironment.ssh,
         healthCheck: branchEnvironment.health_check,
       },
-      metadata: {
-        commitHash,
-        pusherEmail,
-        message,
-        deploymentId: deployment_id,
-      },
+      // metadata: {
+      //   commitHash,
+      //   pusherEmail,
+      //   message,
+      //   deploymentId: deployment_id,
+      // },
     });
 
     return await updateDeployment({

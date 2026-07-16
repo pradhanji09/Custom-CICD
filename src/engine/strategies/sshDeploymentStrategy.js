@@ -1,7 +1,6 @@
 async function sshDeploymentStrategy({
   steps,
   context: { deployPath, ssh, healthCheck },
-  metadata: { commitHash, pusherEmail, message },
 }) {
   try {
     return {
@@ -12,6 +11,7 @@ async function sshDeploymentStrategy({
       commitHash,
       pusherEmail,
       message,
+      deploymentId,
     };
   } catch (error) {}
 }
