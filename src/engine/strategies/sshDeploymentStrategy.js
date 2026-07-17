@@ -2,8 +2,8 @@ const { NodeSSH } = require("node-ssh");
 
 async function sshDeploymentStrategy({ steps, context }) {
   const { deployPath, ssh: sshConfig } = context;
-  const ssh = new NodeSSH();
 
+  const ssh = new NodeSSH();
   try {
     // If the connection fails (wrong key, server down), this will THROW an error
     // and jump straight to the catch block.

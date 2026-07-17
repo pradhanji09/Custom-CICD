@@ -19,6 +19,12 @@ const Errors = {
       message: `Unkown deployment type: ${type}`,
       errorCode: "UNKOWN_DEPLOYMENT_TYPE",
     }),
+
+  InvalidCurrentSlot: (slot) =>
+    CustomError.internal({
+      message: `Invalid current slot: ${slot}`,
+      errorCode: "INVALID_CURRENT_SLOT",
+    }),
 };
 
 module.exports = Errors;

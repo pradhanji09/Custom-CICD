@@ -28,10 +28,16 @@ const TRIGGER_TYPE = {
   ROLLBACK: "ROLLBACK",
 };
 
+const SLOT = {
+  A: "node-a",
+  B: "node-b",
+};
+
 module.exports = {
   DEPLOYMENT_STEP,
   DEPLOYMENT_TYPE,
   STATUS,
   DEPLOYMENT_STATUS,
   TRIGGER_TYPE,
+  SLOT,
 };
