@@ -31,6 +31,18 @@ const Errors = {
       message: `Failed to read current slot: ${stderr}`,
       errorCode: "FAILED_TO_READ_CURRENT_SLOT",
     }),
+
+  MissingTemplateVariable: (key, template) =>
+    CustomError.internal({
+      message: `Missing template variable "${key}" for: ${template}`,
+      errorCode: "MISSING_TEMPLATE_VARIABLE",
+    }),
+
+  UnknownPort: (port) =>
+    CustomError.badRequest({
+      message: `UnknowN Port: ${port}`,
+      errorCode: "UNKNOW_PORT",
+    }),
 };
 
 module.exports = Errors;

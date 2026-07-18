@@ -1,19 +1,38 @@
 const { exec } = require("child_process");
 const util = require("util");
-const { getLocalCurrentSlot, getTargetSlot } = require("../engine.helper");
+const {
+  getLocalCurrentSlot,
+  getTargetSlot,
+  resolvePort,
+  resolveTemplate,
+} = require("../engine.helper");
 const path = require("path");
 const execPromise = util.promisify(exec);
 
 async function localDeploymentStrategy({ steps, context }) {
-  const { deployPath } = context;
+  const { deployPath, project, environment, port } = context;
 
   const currentSlot = await getLocalCurrentSlot(deployPath);
   const targetSlot = getTargetSlot(currentSlot);
   const targetPath = path.join(deployPath, targetSlot);
+  const targetPort = resolvePort(port, targetSlot);
+
+  const templateVars = {
+    project,
+    environment,
+    slot: targetSlot,
+    port: targetPort,
+  };
+
+  logger.info(
+    `[LOCAL] current slot: ${currentSlot ?? "none (first deploy)"} — deploying into: ${targetSlot} on port ${targetPort}`,
+  );
 
   const executedSteps = [];
 
-  for (const step of steps) {
+  for (const rawStep of steps) {
+    const step = resolveTemplate(rawStep, templateVars);
+
     try {
       const { stdout, stderr } = await execPromise(step, {
         cwd: targetPath,

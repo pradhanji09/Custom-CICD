@@ -38,8 +38,26 @@ function getTargetSlot(currentSlot) {
   throw Errors.InvalidCurrentSlot(currentSlot);
 }
 
+function resolveTemplate(template, variables) {
+  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    if (!(key in variables)) {
+      throw Errors.MissingTemplateVariable(key, template);
+    }
+    return variables[key];
+  });
+}
+
+function resolvePort(basePort, slot) {
+  if (slot === "node-a") return basePort;
+  if (slot === "node-b") return basePort + 1;
+
+  throw Errors.UnknownPort(slot);
+}
+
 module.exports = {
   getLocalCurrentSlot,
   getTargetSlot,
   getSshCurrentSlot,
+  resolvePort,
+  resolveTemplate,
 };

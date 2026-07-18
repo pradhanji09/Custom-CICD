@@ -3,7 +3,7 @@ const { getSshCurrentSlot, getTargetSlot } = require("../engine.helper");
 const path = require("path");
 
 async function sshDeploymentStrategy({ steps, context }) {
-  const { deployPath, ssh: sshConfig } = context;
+  const { deployPath, ssh: sshConfig, project, environment, port } = context;
 
   const ssh = new NodeSSH();
 
@@ -20,10 +20,24 @@ async function sshDeploymentStrategy({ steps, context }) {
     const currentSlot = await getSshCurrentSlot(ssh, deployPath);
     const targetSlot = getTargetSlot(currentSlot);
     const targetPath = path.join(deployPath, targetSlot);
+    // it can change to path.posix for linuk,
+    // and use forward slash '/' instead of backward slash '\' for windows
+    const targetPort = resolvePort(port, targetSlot);
 
+    const templateVars = {
+      project,
+      environment,
+      slot: targetSlot,
+      port: targetPort,
+    };
+
+    logger.info(
+      `[REMOTE] current slot: ${currentSlot ?? "none (first deploy)"} — deploying into: ${targetSlot} on port ${targetPort}`,
+    );
     const executedSteps = [];
 
-    for (const step of steps) {
+    for (const rawStep of steps) {
+      const step = resolveTemplate(rawStep, templateVars);
       const result = await ssh.execCommand(step, { cwd: targetPath });
 
       executedSteps.push({

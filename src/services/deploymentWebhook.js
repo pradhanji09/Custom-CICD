@@ -44,6 +44,7 @@ async function deploymentWebhookService(
     input: {
       project: repoName,
       environment: branchEnvironment.environment_name,
+      port: branchEnvironment.port,
       branch,
       commit_hash: commitHash,
       deployment_type: branchEnvironment.deployment_type,
@@ -63,6 +64,9 @@ async function deploymentWebhookService(
         deployPath: branchEnvironment.deploy_path,
         ssh: branchEnvironment.ssh,
         healthCheck: branchEnvironment.health_check,
+        project: repoName,
+        environment: branchEnvironment.environment_name,
+        port: branchEnvironment.port,
       },
       // metadata: {
       //   commitHash,
