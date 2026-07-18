@@ -3,7 +3,7 @@ const fs = require("fs").promises;
 const { SLOT } = require("../commons/constants/constants");
 const Errors = require("../commons/errors/errorCatalog");
 
-async function getCurrentSlot(deployPath) {
+async function getLocalCurrentSlot(deployPath) {
   const pointerPath = path.join(deployPath, "pointer");
 
   try {
@@ -14,8 +14,20 @@ async function getCurrentSlot(deployPath) {
       // for the first deployment
       return null;
     }
-    throw err;
+    throw Errors.FailedToReadCurrentSlot(err.message);
   }
+}
+
+async function getSshCurrentSlot(ssh, deployPath) {
+  const result = await ssh.execCommand(`readlink pointer`, { cwd: deployPath });
+
+  if (result.code !== 0) {
+    if (result.stderr.includes("No such file or directory")) return null;
+    throw Errors.FailedToReadCurrentSlot(result.stderr);
+  }
+
+  const stdout = result.stdout.trim();
+  return stdout;
 }
 
 async function getTargetSlot(currentSlot) {
@@ -27,6 +39,7 @@ async function getTargetSlot(currentSlot) {
 }
 
 module.exports = {
-  getCurrentSlot,
+  getLocalCurrentSlot,
   getTargetSlot,
+  getSshCurrentSlot,
 };

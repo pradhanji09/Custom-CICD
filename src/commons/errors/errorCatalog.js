@@ -25,6 +25,12 @@ const Errors = {
       message: `Invalid current slot: ${slot}`,
       errorCode: "INVALID_CURRENT_SLOT",
     }),
+
+  FailedToReadCurrentSlot: (stderr) =>
+    CustomError.internal({
+      message: `Failed to read current slot: ${stderr}`,
+      errorCode: "FAILED_TO_READ_CURRENT_SLOT",
+    }),
 };
 
 module.exports = Errors;
