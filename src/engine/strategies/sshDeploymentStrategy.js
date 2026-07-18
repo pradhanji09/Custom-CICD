@@ -1,9 +1,12 @@
 const { NodeSSH } = require("node-ssh");
+const { getSshCurrentSlot, getTargetSlot } = require("../engine.helper");
+const path = require("path");
 
 async function sshDeploymentStrategy({ steps, context }) {
   const { deployPath, ssh: sshConfig } = context;
 
   const ssh = new NodeSSH();
+
   try {
     // If the connection fails (wrong key, server down), this will THROW an error
     // and jump straight to the catch block.
@@ -14,10 +17,14 @@ async function sshDeploymentStrategy({ steps, context }) {
       privateKey: sshConfig.private_key_path,
     });
 
+    const currentSlot = await getSshCurrentSlot(ssh, deployPath);
+    const targetSlot = getTargetSlot(currentSlot);
+    const targetPath = path.join(deployPath, targetSlot);
+
     const executedSteps = [];
 
     for (const step of steps) {
-      const result = await ssh.execCommand(step, { cwd: deployPath });
+      const result = await ssh.execCommand(step, { cwd: targetPath });
 
       executedSteps.push({
         command: step,

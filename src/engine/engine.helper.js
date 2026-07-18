@@ -30,7 +30,7 @@ async function getSshCurrentSlot(ssh, deployPath) {
   return stdout;
 }
 
-async function getTargetSlot(currentSlot) {
+function getTargetSlot(currentSlot) {
   if (!currentSlot) return SLOT.A; // node-a
   if (currentSlot === SLOT.A) return SLOT.B; // node-b
   if (currentSlot === SLOT.B) return SLOT.A; //node-a
