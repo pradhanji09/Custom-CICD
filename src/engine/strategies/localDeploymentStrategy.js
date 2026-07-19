@@ -24,7 +24,7 @@ async function localDeploymentStrategy({ steps, context }) {
     port: targetPort,
   };
 
-  logger.info(
+  console.log(
     `[LOCAL] current slot: ${currentSlot ?? "none (first deploy)"} — deploying into: ${targetSlot} on port ${targetPort}`,
   );
 
@@ -69,6 +69,8 @@ async function localDeploymentStrategy({ steps, context }) {
     success: true,
     strategy: "LOCAL",
     executedSteps,
+    port: targetPort,
+    host: "localhost",
   };
 }
 

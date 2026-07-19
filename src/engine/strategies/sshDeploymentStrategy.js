@@ -1,5 +1,10 @@
 const { NodeSSH } = require("node-ssh");
-const { getSshCurrentSlot, getTargetSlot } = require("../engine.helper");
+const {
+  getSshCurrentSlot,
+  getTargetSlot,
+  resolvePort,
+  resolveTemplate,
+} = require("../engine.helper");
 const path = require("path");
 
 async function sshDeploymentStrategy({ steps, context }) {
@@ -31,7 +36,7 @@ async function sshDeploymentStrategy({ steps, context }) {
       port: targetPort,
     };
 
-    logger.info(
+    console.log(
       `[REMOTE] current slot: ${currentSlot ?? "none (first deploy)"} — deploying into: ${targetSlot} on port ${targetPort}`,
     );
     const executedSteps = [];
@@ -62,6 +67,8 @@ async function sshDeploymentStrategy({ steps, context }) {
       success: true,
       strategy: "REMOTE",
       executedSteps,
+      port: targetPort,
+      host: sshConfig.host,
     };
   } catch (error) {
     // ssh.connect() failures or unexpected network drops
