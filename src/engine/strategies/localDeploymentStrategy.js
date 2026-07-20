@@ -5,6 +5,7 @@ const {
   getTargetSlot,
   resolvePort,
   resolveTemplate,
+  switchToSlotLocal,
 } = require("../engine.helper");
 const path = require("path");
 const execPromise = util.promisify(exec);
@@ -63,6 +64,14 @@ async function localDeploymentStrategy({ steps, context }) {
         executedSteps,
       };
     }
+  }
+
+  // All steps passed — atomically swap the symlink pointer to the new slot (RELEASE)
+  try {
+    await switchToSlotLocal(deployPath, targetSlot);
+  } catch (err) {
+    err.step = "RELEASE";
+    throw err;
   }
 
   return {

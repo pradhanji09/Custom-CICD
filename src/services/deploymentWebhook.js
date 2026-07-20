@@ -118,13 +118,23 @@ async function deploymentWebhookService(
       },
     });
   } catch (error) {
-    // Unexpected / uncaught errors (e.g. DB down, SSH connect throw, etc.)
+    // switchToSlot errors are tagged with step = "RELEASE"; everything else is a DEPLOY_STEP failure
+    const failedStep =
+      error.step === DEPLOYMENT_STEP.RELEASE
+        ? DEPLOYMENT_STEP.RELEASE
+        : DEPLOYMENT_STEP.DEPLOY_STEP;
+
+    console.error(
+      `[DEPLOYMENT] failed at step "${failedStep}":`,
+      error.message,
+    );
+
     return await updateDeployment({
       filter: { deployment_id },
       input: {
         status: DEPLOYMENT_STATUS.FAILED,
         completed_at: new Date().toISOString(),
-        failed_step: DEPLOYMENT_STEP.DEPLOY_STEP,
+        failed_step: failedStep,
       },
     });
   } finally {

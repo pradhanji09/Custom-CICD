@@ -54,10 +54,44 @@ function resolvePort(basePort, slot) {
   throw Errors.UnknownPort(slot);
 }
 
+async function switchToSlotLocal(deployPath, targetSlot) {
+  const pointerPath = path.join(deployPath, "pointer");
+  const tempPath = path.join(deployPath, "pointer.tmp");
+
+  // clean up any leftover temp symlink from a previous failed attempt
+  await fs.rm(tempPath, { force: true });
+
+  // create temp symlink
+  await fs.symlink(targetSlot, tempPath);
+
+  // atomic pointer swap
+  await fs.rename(tempPath, pointerPath);
+  console.log(`[LOCAL] switched pointer -> ${targetSlot}`);
+}
+
+async function switchToSlotSsh(ssh, deployPath, targetSlot) {
+  // -T : it tells mv to treat current as a plain file/symlink target (not a directory to move into)
+  // -s : create symbolic link
+  // -f : means "force," i.e., "overwrite pointer.tmp if it already exists,
+  // -n : means "no-clobber" i.e. do not overwrite an existing file
+  const command = `ln -sfn ${targetSlot} pointer.tmp && mv -Tf pointer.tmp pointer`;
+  const result = await ssh.execCommand(command, { cwd: deployPath });
+
+  if (result.code !== 0) {
+    throw new Error(
+      `Failed to switch symlink on remote host: ${result.stderr}`,
+    );
+  }
+
+  console.log(`[REMOTE] switched current -> ${targetSlot}`);
+}
+
 module.exports = {
   getLocalCurrentSlot,
   getTargetSlot,
   getSshCurrentSlot,
   resolvePort,
   resolveTemplate,
+  switchToSlotLocal,
+  switchToSlotSsh,
 };
