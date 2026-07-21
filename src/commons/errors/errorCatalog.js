@@ -1,5 +1,4 @@
 const CustomError = require("./customError");
-const CutomError = require("./customError");
 
 const Errors = {
   SignatureMissing: () =>

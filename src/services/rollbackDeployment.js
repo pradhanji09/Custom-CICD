@@ -1,5 +1,7 @@
+const { TRIGGER_TYPE } = require("../commons/constants/constants");
 const Errors = require("../commons/errors/errorCatalog");
 const deploymentRepo = require("../repositories/deployment");
+const deploymentWebhookService = require("./deploymentWebhook");
 
 async function rollbackDeploymentService(knex, { project, environment }) {
   const { getDeployment } = deploymentRepo(knex);
@@ -18,11 +20,17 @@ async function rollbackDeploymentService(knex, { project, environment }) {
     throw Errors.NoPreviousDeployment(project, environment);
 
   const {
-    repo_name,
+    project: repoName,
     commit_hash: previousCommitHash,
-    deployment_type,
     branch,
   } = previousDeployment[0];
+
+  return await deploymentWebhookService(
+    knex,
+    { repoName, commitHash: previousCommitHash, branch },
+    TRIGGER_TYPE.ROLLBACK,
+    environment,
+  );
 }
 
 module.exports = rollbackDeploymentService;

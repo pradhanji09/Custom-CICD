@@ -4,9 +4,12 @@ async function rollbackDeploymentHandler(request, reply) {
   const { project, environment } = request.params;
   const { knex } = request.server;
 
-  await services.rollbackDeploymentService(knex, { project, environment });
+  const result = await services.rollbackDeploymentService(knex, {
+    project,
+    environment,
+  });
 
-  return reply.code(200).send();
+  return reply.code(200).send(result);
 }
 
 module.exports = rollbackDeploymentHandler;

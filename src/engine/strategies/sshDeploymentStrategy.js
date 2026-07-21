@@ -7,13 +7,16 @@ const {
   switchToSlotSsh,
 } = require("../engine.helper");
 const path = require("path");
+const { DEPLOYMENT_STEP } = require("../../commons/constants/constants");
 
 async function sshDeploymentStrategy({ steps, context }) {
   const { deployPath, ssh: sshConfig, project, environment, port } = context;
 
   const ssh = new NodeSSH();
   let targetSlot;
+  let targetPort;
 
+  const executedSteps = [];
   try {
     // If the connection fails (wrong key, server down), this will THROW an error
     // and jump straight to the catch block.
@@ -27,10 +30,9 @@ async function sshDeploymentStrategy({ steps, context }) {
     const currentSlot = await getSshCurrentSlot(ssh, deployPath);
     targetSlot = getTargetSlot(currentSlot);
     const targetPath = path.join(deployPath, targetSlot);
-
     // it can change to path.posix for linuk,
     // and use forward slash '/' instead of backward slash '\' for windows
-    const targetPort = resolvePort(port, targetSlot);
+    targetPort = resolvePort(port, targetSlot);
 
     const templateVars = {
       project,
@@ -42,8 +44,6 @@ async function sshDeploymentStrategy({ steps, context }) {
     console.log(
       `[REMOTE] current slot: ${currentSlot ?? "none (first deploy)"} — deploying into: ${targetSlot} on port ${targetPort}`,
     );
-
-    const executedSteps = [];
 
     for (const rawStep of steps) {
       const step = resolveTemplate(rawStep, templateVars);
@@ -58,6 +58,7 @@ async function sshDeploymentStrategy({ steps, context }) {
 
       // Fail-fast: one command fails
       if (result.code !== 0) {
+        ssh.dispose();
         return {
           success: false,
           strategy: "REMOTE",
