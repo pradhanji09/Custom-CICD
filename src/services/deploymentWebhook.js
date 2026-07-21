@@ -12,8 +12,6 @@ const { runHealthChecker } = require("../engine/healthChecker");
 async function deploymentWebhookService(
   knex,
   { repoName, commitHash, branch },
-  triggerType = TRIGGER_TYPE.WEBHOOK,
-  environment,
 ) {
   const { createDeployment, updateDeployment } = deploymentRepo(knex);
 
@@ -26,34 +24,23 @@ async function deploymentWebhookService(
     };
   }
 
-  let environmentConfig;
-  if (branch) {
-    environmentConfig = repoConfig.environments.find(
-      (env) => env.branch === branch,
-    );
-  }
+  const branchEnvironment = repoConfig.environments.find(
+    (env) => env.branch === branch,
+  );
 
-  if (environment) {
-    environmentConfig = repoConfig.environments.find(
-      (env) => env.environment_name === environment,
-    );
-  }
-
-  if (!environmentConfig) {
+  if (!branchEnvironment) {
     return {
       status: DEPLOYMENT_STATUS.SKIPPED,
-      message: `Failed to deploy as environment is not deployable`,
+      message: `Branch ${branch} is not deployable`,
     };
   }
 
   // 2. Lock guard (prevent concurrent deploys of same repo:branch)
-  const isLockAcquired = lockManager.acquireLock(
-    `${repoName}:${environmentConfig.branch}`,
-  );
+  const isLockAcquired = lockManager.acquireLock(`${repoName}:${branch}`);
   if (!isLockAcquired) {
     return {
       status: DEPLOYMENT_STATUS.IN_PROGRESS,
-      message: `Deployment already in progress for ${repoName}:${environmentConfig.branch}`,
+      message: `Deployment already in progress for ${repoName}:${branch}`,
     };
   }
 
@@ -61,11 +48,11 @@ async function deploymentWebhookService(
   const { deployment_id } = await createDeployment({
     input: {
       project: repoName,
-      environment: environmentConfig.environment_name,
+      environment: branchEnvironment.environment_name,
       branch,
       commit_hash: commitHash,
-      deployment_type: environmentConfig.deployment_type,
-      trigger_type: triggerType,
+      deployment_type: branchEnvironment.deployment_type,
+      trigger_type: TRIGGER_TYPE.WEBHOOK,
       status: DEPLOYMENT_STATUS.IN_PROGRESS,
     },
   });
@@ -73,17 +60,17 @@ async function deploymentWebhookService(
   try {
     // 4. Run deployment strategy
     const strategy = deploymentStrategyFactory(
-      environmentConfig.deployment_type,
+      branchEnvironment.deployment_type,
     );
 
     const { success, port, host, symlinkSwitcher } = await strategy({
-      steps: environmentConfig.steps,
+      steps: branchEnvironment.steps,
       context: {
-        deployPath: environmentConfig.deploy_path,
-        ssh: environmentConfig.ssh,
+        deployPath: branchEnvironment.deploy_path,
+        ssh: branchEnvironment.ssh,
         project: repoName,
-        environment: environmentConfig.environment_name,
-        port: environmentConfig.port,
+        environment: branchEnvironment.environment_name,
+        port: branchEnvironment.port,
       },
     });
 
@@ -100,7 +87,7 @@ async function deploymentWebhookService(
     }
 
     // 6. Health check (optional — only if configured
-    const healthCheckConfig = environmentConfig.health_check;
+    const healthCheckConfig = branchEnvironment.health_check;
 
     if (healthCheckConfig) {
       // Port and host come from the strategy result, which resolves the blue/green slot.
@@ -154,9 +141,7 @@ async function deploymentWebhookService(
       },
     });
   } finally {
-    lockManager.releaseLock(
-      `${repoName}:${environmentConfig.environment_name}`,
-    );
+    lockManager.releaseLock(`${repoName}:${branch}`);
   }
 }
 

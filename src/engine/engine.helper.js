@@ -18,6 +18,14 @@ async function getLocalCurrentSlot(deployPath) {
   }
 }
 
+function getPreviousSlot(currentSlot) {
+  if (!currentSlot) throw Errors.NothingLive();
+  if (currentSlot === SLOT.A) return SLOT.B;
+  if (currentSlot === SLOT.B) return SLOT.A;
+
+  throw Errors.InvalidCurrentSlot(currentSlot);
+}
+
 async function getSshCurrentSlot(ssh, deployPath) {
   const result = await ssh.execCommand(`readlink pointer`, { cwd: deployPath });
 
@@ -94,4 +102,5 @@ module.exports = {
   resolveTemplate,
   switchToSlotLocal,
   switchToSlotSsh,
+  getPreviousSlot,
 };

@@ -48,6 +48,24 @@ const Errors = {
       message: `No previous deployment found for project: ${project} and environment: ${environment}`,
       errorCode: "NO_PREVIOUS_DEPLOYMENT",
     }),
+
+  NoConfigForProject: (project) =>
+    CustomError.badRequest({
+      message: `No config found for project: ${project}`,
+      errorCode: "NO_CONFIG_FOUND",
+    }),
+
+  NoEnvironmentFound: (environment) =>
+    CustomError.badRequest({
+      message: `No such environment found: ${environment}`,
+      errorCode: "NO_ENVIRONMENT_FOUND",
+    }),
+
+  NothingLive: () =>
+    CustomError.notFound({
+      message: `Nothing live`,
+      errorCode: "NO_PREVIOUS_DEPLOYMENT",
+    }),
 };
 
 module.exports = Errors;
