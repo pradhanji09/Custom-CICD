@@ -63,7 +63,7 @@ async function deploymentWebhookService(
       branchEnvironment.deployment_type,
     );
 
-    const { success, port, host } = await strategy({
+    const { success, port, host, symlinkSwitcher } = await strategy({
       steps: branchEnvironment.steps,
       context: {
         deployPath: branchEnvironment.deploy_path,
@@ -98,6 +98,7 @@ async function deploymentWebhookService(
       });
 
       if (!healthy) {
+        await symlinkSwitcher(false);
         return await updateDeployment({
           filter: { deployment_id },
           input: {
@@ -108,6 +109,8 @@ async function deploymentWebhookService(
         });
       }
     }
+
+    await symlinkSwitcher(true);
 
     // 7. All good
     return await updateDeployment({

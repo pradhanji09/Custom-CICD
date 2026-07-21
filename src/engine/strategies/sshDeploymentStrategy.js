@@ -12,6 +12,7 @@ async function sshDeploymentStrategy({ steps, context }) {
   const { deployPath, ssh: sshConfig, project, environment, port } = context;
 
   const ssh = new NodeSSH();
+  let targetSlot;
 
   try {
     // If the connection fails (wrong key, server down), this will THROW an error
@@ -24,8 +25,9 @@ async function sshDeploymentStrategy({ steps, context }) {
     });
 
     const currentSlot = await getSshCurrentSlot(ssh, deployPath);
-    const targetSlot = getTargetSlot(currentSlot);
+    targetSlot = getTargetSlot(currentSlot);
     const targetPath = path.join(deployPath, targetSlot);
+
     // it can change to path.posix for linuk,
     // and use forward slash '/' instead of backward slash '\' for windows
     const targetPort = resolvePort(port, targetSlot);
@@ -40,6 +42,7 @@ async function sshDeploymentStrategy({ steps, context }) {
     console.log(
       `[REMOTE] current slot: ${currentSlot ?? "none (first deploy)"} — deploying into: ${targetSlot} on port ${targetPort}`,
     );
+
     const executedSteps = [];
 
     for (const rawStep of steps) {
@@ -63,24 +66,9 @@ async function sshDeploymentStrategy({ steps, context }) {
         };
       }
     }
-
-    // All steps passed — atomically swap the symlink pointer to the new slot (RELEASE)
-    try {
-      await switchToSlotSsh(ssh, deployPath, targetSlot);
-    } catch (err) {
-      err.step = "RELEASE";
-      throw err;
-    }
-
-    return {
-      success: true,
-      strategy: "REMOTE",
-      executedSteps,
-      port: targetPort,
-      host: sshConfig.host,
-    };
   } catch (error) {
     // ssh.connect() failures or unexpected network drops
+    ssh.dispose();
     return {
       success: false,
       strategy: "REMOTE",
@@ -88,12 +76,25 @@ async function sshDeploymentStrategy({ steps, context }) {
       error: error.message,
       executedSteps: [],
     };
-  } finally {
-    // always close tunnel whether it succeeded, failed, or crashed!
-    if (ssh && ssh.isConnected) {
-      ssh.dispose();
-    }
   }
+
+  return {
+    success: true,
+    strategy: "REMOTE",
+    executedSteps,
+    port: targetPort,
+    host: sshConfig.host,
+    symlinkSwitcher: async (shouldSwitch = false) => {
+      try {
+        if (shouldSwitch) await switchToSlotSsh(ssh, deployPath, targetSlot);
+      } catch (err) {
+        err.step = DEPLOYMENT_STEP.RELEASE;
+        throw err;
+      } finally {
+        ssh.dispose();
+      }
+    },
+  };
 }
 
 module.exports = sshDeploymentStrategy;

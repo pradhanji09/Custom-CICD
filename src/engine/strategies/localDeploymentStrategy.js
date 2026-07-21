@@ -8,6 +8,7 @@ const {
   switchToSlotLocal,
 } = require("../engine.helper");
 const path = require("path");
+const { DEPLOYMENT_STEP } = require("../../commons/constants/constants");
 const execPromise = util.promisify(exec);
 
 async function localDeploymentStrategy({ steps, context }) {
@@ -66,20 +67,21 @@ async function localDeploymentStrategy({ steps, context }) {
     }
   }
 
-  // All steps passed — atomically swap the symlink pointer to the new slot (RELEASE)
-  try {
-    await switchToSlotLocal(deployPath, targetSlot);
-  } catch (err) {
-    err.step = "RELEASE";
-    throw err;
-  }
-
   return {
     success: true,
     strategy: "LOCAL",
     executedSteps,
     port: targetPort,
     host: "localhost",
+    symlinkSwitcher: async (shouldSwitch = false) => {
+      if (!shouldSwitch) return;
+      try {
+        await switchToSlotLocal(deployPath, targetSlot);
+      } catch (err) {
+        err.step = DEPLOYMENT_STEP.RELEASE;
+        throw err;
+      }
+    },
   };
 }
 
