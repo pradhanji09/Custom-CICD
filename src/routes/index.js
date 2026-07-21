@@ -12,4 +12,10 @@ module.exports = async (fastify) => {
     // preHandler: [isPushEventType, verifySignature],
     handler: handlers.deploymentWebhook,
   });
+
+  fastify.route({
+    method: "POST",
+    url: "/:project/:environment/rollback",
+    handler: handlers.rollbackDeployment,
+  });
 };

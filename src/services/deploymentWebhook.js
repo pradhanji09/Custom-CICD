@@ -11,7 +11,8 @@ const { runHealthChecker } = require("../engine/healthChecker");
 
 async function deploymentWebhookService(
   knex,
-  { repoName, commitHash, branch, pusherEmail, message },
+  { repoName, commitHash, branch },
+  triggerType = TRIGGER_TYPE.WEBHOOK,
 ) {
   const { createDeployment, updateDeployment } = deploymentRepo(knex);
 
@@ -52,7 +53,7 @@ async function deploymentWebhookService(
       branch,
       commit_hash: commitHash,
       deployment_type: branchEnvironment.deployment_type,
-      trigger_type: TRIGGER_TYPE.WEBHOOK,
+      trigger_type: triggerType,
       status: DEPLOYMENT_STATUS.IN_PROGRESS,
     },
   });

@@ -14,7 +14,7 @@ function deploymentRepo(knex) {
     return result[0];
   }
 
-  async function getDeployment({ where, whereIn }) {
+  async function getDeployment({ where, whereIn, orderBy, limit }) {
     const query = knex(DEPLOYMENT.NAME);
     if (where) {
       query.where(where);
@@ -22,6 +22,14 @@ function deploymentRepo(knex) {
 
     if (whereIn) {
       query.whereIn(whereIn.column, whereIn.values);
+    }
+
+    if (orderBy) {
+      query.orderBy(orderBy);
+    }
+
+    if (limit) {
+      query.limit(limit);
     }
 
     const result = await query;

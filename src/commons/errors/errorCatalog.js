@@ -43,6 +43,12 @@ const Errors = {
       message: `UnknowN Port: ${port}`,
       errorCode: "UNKNOW_PORT",
     }),
+
+  NoPreviousDeployment: (project, environment) =>
+    CustomError.notFound({
+      message: `No previous deployment found for project: ${project} and environment: ${environment}`,
+      errorCode: "NO_PREVIOUS_DEPLOYMENT",
+    }),
 };
 
 module.exports = Errors;
