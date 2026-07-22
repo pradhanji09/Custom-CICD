@@ -63,7 +63,15 @@ async function deploymentWebhookService(
       branchEnvironment.deployment_type,
     );
 
-    const { success, port, host, symlinkSwitcher } = await strategy({
+    const {
+      success,
+      port,
+      host,
+      symlinkSwitcher,
+      currentSlot,
+      stopOldProcess,
+      closeConnection,
+    } = await strategy({
       steps: branchEnvironment.steps,
       context: {
         deployPath: branchEnvironment.deploy_path,
@@ -86,7 +94,7 @@ async function deploymentWebhookService(
       });
     }
 
-    // 6. Health check (optional — only if configured
+    // 6. Health check (optional — only if configured)
     const healthCheckConfig = branchEnvironment.health_check;
 
     if (healthCheckConfig) {
@@ -99,6 +107,7 @@ async function deploymentWebhookService(
 
       if (!healthy) {
         await symlinkSwitcher(false);
+        closeConnection();
         return await updateDeployment({
           filter: { deployment_id },
           input: {
@@ -111,6 +120,23 @@ async function deploymentWebhookService(
     }
 
     await symlinkSwitcher(true);
+
+    // 6.5 Stop the OLD slot's process now that the new one is live and healthy.
+    // Non-fatal: the deployment already succeeded (symlink is live, new process
+    // is healthy). A failure here means manual pm2 cleanup is needed, but must
+    // not flip a successful deploy to FAILED.
+    if (currentSlot) {
+      try {
+        await stopOldProcess(currentSlot);
+      } catch (cleanupError) {
+        console.error(
+          `[DEPLOYMENT] failed to stop old process for slot "${currentSlot}":`,
+          cleanupError.message,
+        );
+      }
+    }
+
+    closeConnection();
 
     // 7. All good
     return await updateDeployment({

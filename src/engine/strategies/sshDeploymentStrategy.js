@@ -3,8 +3,10 @@ const {
   getSshCurrentSlot,
   getTargetSlot,
   resolvePort,
-  resolveTemplate,
   switchToSlotSsh,
+  resolvePm2Name,
+  startProcessSsh,
+  stopProcessSsh,
 } = require("../engine.helper");
 const path = require("path");
 const { DEPLOYMENT_STEP } = require("../../commons/constants/constants");
@@ -15,6 +17,8 @@ async function sshDeploymentStrategy({ steps, context }) {
   const ssh = new NodeSSH();
   let targetSlot;
   let targetPort;
+  let currentSlot;
+  let pm2Name;
 
   const executedSteps = [];
   try {
@@ -27,26 +31,17 @@ async function sshDeploymentStrategy({ steps, context }) {
       privateKey: sshConfig.private_key_path,
     });
 
-    const currentSlot = await getSshCurrentSlot(ssh, deployPath);
+    currentSlot = await getSshCurrentSlot(ssh, deployPath);
     targetSlot = getTargetSlot(currentSlot);
     const targetPath = path.join(deployPath, targetSlot);
-    // it can change to path.posix for linuk,
-    // and use forward slash '/' instead of backward slash '\' for windows
     targetPort = resolvePort(port, targetSlot);
-
-    const templateVars = {
-      project,
-      environment,
-      slot: targetSlot,
-      port: targetPort,
-    };
+    pm2Name = resolvePm2Name(project, environment, targetSlot);
 
     console.log(
       `[REMOTE] current slot: ${currentSlot ?? "none (first deploy)"} — deploying into: ${targetSlot} on port ${targetPort}`,
     );
 
-    for (const rawStep of steps) {
-      const step = resolveTemplate(rawStep, templateVars);
+    for (const step of steps) {
       const result = await ssh.execCommand(step, { cwd: targetPath });
 
       executedSteps.push({
@@ -67,6 +62,20 @@ async function sshDeploymentStrategy({ steps, context }) {
         };
       }
     }
+
+    // Build steps succeeded — start the process for this slot before returning.
+    try {
+      await startProcessSsh(ssh, { targetPath, pm2Name, port: targetPort });
+    } catch (error) {
+      ssh.dispose();
+      return {
+        success: false,
+        strategy: "REMOTE",
+        failedAt: DEPLOYMENT_STEP.PROCESS_START,
+        error: error.message,
+        executedSteps,
+      };
+    }
   } catch (error) {
     // ssh.connect() failures or unexpected network drops
     ssh.dispose();
@@ -79,21 +88,40 @@ async function sshDeploymentStrategy({ steps, context }) {
     };
   }
 
+  // NOTE: ssh connection is intentionally left OPEN here on success.
+  // Caller (deploymentWebhookService) must call closeConnection() once
+  // fully done with SSH work — after symlinkSwitcher AND after
+  // stopping the old slot's process.
   return {
     success: true,
     strategy: "REMOTE",
     executedSteps,
     port: targetPort,
     host: sshConfig.host,
+    targetSlot,
+    currentSlot,
+    pm2Name,
     symlinkSwitcher: async (shouldSwitch = false) => {
+      if (!shouldSwitch) return;
       try {
-        if (shouldSwitch) await switchToSlotSsh(ssh, deployPath, targetSlot);
+        await switchToSlotSsh(ssh, deployPath, targetSlot);
       } catch (err) {
         err.step = DEPLOYMENT_STEP.RELEASE;
         throw err;
-      } finally {
-        ssh.dispose();
       }
+    },
+    stopOldProcess: async (oldSlot) => {
+      if (!oldSlot) return;
+      const oldPm2Name = resolvePm2Name(project, environment, oldSlot);
+      try {
+        await stopProcessSsh(ssh, oldPm2Name);
+      } catch (err) {
+        err.step = DEPLOYMENT_STEP.PROCESS_STOP;
+        throw err;
+      }
+    },
+    closeConnection: () => {
+      ssh.dispose();
     },
   };
 }

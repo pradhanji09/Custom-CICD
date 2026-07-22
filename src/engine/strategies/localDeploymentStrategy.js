@@ -4,8 +4,10 @@ const {
   getLocalCurrentSlot,
   getTargetSlot,
   resolvePort,
-  resolveTemplate,
   switchToSlotLocal,
+  resolvePm2Name,
+  startProcessLocal,
+  stopProcessLocal,
 } = require("../engine.helper");
 const path = require("path");
 const { DEPLOYMENT_STEP } = require("../../commons/constants/constants");
@@ -18,13 +20,7 @@ async function localDeploymentStrategy({ steps, context }) {
   const targetSlot = getTargetSlot(currentSlot);
   const targetPath = path.join(deployPath, targetSlot);
   const targetPort = resolvePort(port, targetSlot);
-
-  const templateVars = {
-    project,
-    environment,
-    slot: targetSlot,
-    port: targetPort,
-  };
+  const pm2Name = resolvePm2Name(project, environment, targetSlot);
 
   console.log(
     `[LOCAL] current slot: ${currentSlot ?? "none (first deploy)"} — deploying into: ${targetSlot} on port ${targetPort}`,
@@ -32,13 +28,11 @@ async function localDeploymentStrategy({ steps, context }) {
 
   const executedSteps = [];
 
-  for (const rawStep of steps) {
-    const step = resolveTemplate(rawStep, templateVars);
-
+  for (const step of steps) {
     try {
       const { stdout, stderr } = await execPromise(step, {
         cwd: targetPath,
-        maxBuffer: 10 * 1024 * 1024, // Increasing to 10MB munally becuase, Node.js default is 1MB
+        maxBuffer: 10 * 1024 * 1024, // Increasing to 10MB manually because Node.js default is 1MB
       });
 
       executedSteps.push({
@@ -50,7 +44,6 @@ async function localDeploymentStrategy({ steps, context }) {
     } catch (error) {
       // execPromise REJECTS (throws) when exit code is non-zero
       // this is different behavior from node-ssh's execCommand!
-      // in node-ssh, execCommand returns an object with code + stdout + stderr even when the exit code is non-zero
       executedSteps.push({
         command: step,
         stdout: error.stdout,
@@ -67,12 +60,28 @@ async function localDeploymentStrategy({ steps, context }) {
     }
   }
 
+  // Build steps succeeded — start the process for this slot before returning.
+  try {
+    await startProcessLocal({ targetPath, pm2Name, port: targetPort });
+  } catch (error) {
+    return {
+      success: false,
+      strategy: "LOCAL",
+      failedAt: DEPLOYMENT_STEP.PROCESS_START,
+      error: error.message,
+      executedSteps,
+    };
+  }
+
   return {
     success: true,
     strategy: "LOCAL",
     executedSteps,
     port: targetPort,
     host: "localhost",
+    targetSlot,
+    currentSlot,
+    pm2Name,
     symlinkSwitcher: async (shouldSwitch = false) => {
       if (!shouldSwitch) return;
       try {
@@ -81,6 +90,19 @@ async function localDeploymentStrategy({ steps, context }) {
         err.step = DEPLOYMENT_STEP.RELEASE;
         throw err;
       }
+    },
+    stopOldProcess: async (oldSlot) => {
+      if (!oldSlot) return;
+      const oldPm2Name = resolvePm2Name(project, environment, oldSlot);
+      try {
+        await stopProcessLocal(oldPm2Name);
+      } catch (err) {
+        err.step = DEPLOYMENT_STEP.PROCESS_STOP;
+        throw err;
+      }
+    },
+    closeConnection: () => {
+      // no-op: LOCAL has no persistent connection to close
     },
   };
 }
