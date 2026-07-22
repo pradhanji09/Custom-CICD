@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const env = require("../../config/env");
 const Errors = require("../errors/errorCatalog");
 
 function verifySignature(request, reply) {
@@ -9,7 +10,7 @@ function verifySignature(request, reply) {
 
   const incomingSignature = signatureHeader.replace("sha256=", "");
   const expectedSignature = crypto
-    .createHmac("sha256", process.env.WEBHOOK_SECRET)
+    .createHmac("sha256", env.WEBHOOK_SECRET)
     .update(rawBody)
     .digest("hex");
 

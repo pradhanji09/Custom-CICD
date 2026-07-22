@@ -1,6 +1,10 @@
 const path = require("path");
 const fs = require("fs");
 const yaml = require("js-yaml");
+const ajv = require("../commons/validator");
+const projectConfigSchema = require("../commons/schema/projectConfigSchema");
+
+const validateProjectConfig = ajv.compile(projectConfigSchema);
 
 class ConfigRegistry {
   #projectsConfig;
@@ -19,7 +23,12 @@ class ConfigRegistry {
           fs.readFileSync(path.join(projectFolder, file), "utf8"),
         );
 
-        if (!data.repo) throw Error("Repo Missing in " + file);
+        const isValid = validateProjectConfig(data);
+        if (!isValid) {
+          console.error(JSON.stringify(validateProjectConfig.errors, null, 2));
+          throw Error(`Invalid project config in ${file}`);
+        }
+
         this.#projectsConfig.set(data.repo, data);
         console.log(`Registered project: ${data.repo} from file: ${file}`);
       }

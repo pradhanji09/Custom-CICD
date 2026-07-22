@@ -15,6 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "ajv": "^8.20.0",
     "axios": "^1.18.1",
     "fastify": "^5.10.0",
     "fastify-plugin": "^6.0.0",
