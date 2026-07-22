@@ -1,7 +1,10 @@
 const path = require("path");
 const fs = require("fs").promises;
-const { SLOT } = require("../commons/constants/constants");
+const { SLOT, DEPLOYMENT_STEP } = require("../commons/constants/constants");
 const Errors = require("../commons/errors/errorCatalog");
+const { exec } = require("child_process");
+const util = require("util");
+const execPromise = util.promisify(exec);
 
 async function getLocalCurrentSlot(deployPath) {
   const pointerPath = path.join(deployPath, "pointer");
@@ -94,6 +97,96 @@ async function switchToSlotSsh(ssh, deployPath, targetSlot) {
   console.log(`[REMOTE] switched current -> ${targetSlot}`);
 }
 
+async function startProcessLocal({
+  targetPath,
+  pm2Name,
+  port,
+  entryPoint = "app.js",
+}) {
+  const command = `PORT=${port} pm2 start ${entryPoint} --name ${pm2Name}`;
+
+  try {
+    const { stdout, stderr } = await execPromise(command, { cwd: targetPath });
+    console.log(`[LOCAL] started process ${pm2Name} on port ${port}`);
+    return { started: true, pm2Name, stdout, stderr };
+  } catch (err) {
+    err.step = DEPLOYMENT_STEP.PROCESS_START;
+    throw err;
+  }
+}
+
+async function stopProcessLocal(pm2Name) {
+  const command = `pm2 delete ${pm2Name}`;
+
+  try {
+    await execPromise(command);
+    console.log(`[LOCAL] stopped process ${pm2Name}`);
+    return { stopped: true, pm2Name };
+  } catch (err) {
+    // pm2 delete exits non-zero if the process name doesn't exist — treat as already-stopped, not fatal
+    const notFound = /not found|process or namespace not found/i.test(
+      err.stderr || err.message || "",
+    );
+    if (notFound) {
+      console.log(`[LOCAL] process ${pm2Name} was already stopped/absent`);
+      return { stopped: true, pm2Name, alreadyAbsent: true };
+    }
+    err.step = DEPLOYMENT_STEP.PROCESS_STOP;
+    throw err;
+  }
+}
+
+async function startProcessSsh(
+  ssh,
+  { targetPath, pm2Name, port, entryPoint = "app.js" },
+) {
+  const command = `PORT=${port} pm2 start ${entryPoint} --name ${pm2Name}`;
+  const result = await ssh.execCommand(command, { cwd: targetPath });
+
+  if (result.code !== 0) {
+    const err = new Error(
+      `Failed to start process ${pm2Name} on remote host: ${result.stderr}`,
+    );
+    err.step = DEPLOYMENT_STEP.PROCESS_START;
+    throw err;
+  }
+
+  console.log(`[REMOTE] started process ${pm2Name} on port ${port}`);
+  return {
+    started: true,
+    pm2Name,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
+}
+
+async function stopProcessSsh(ssh, pm2Name) {
+  const command = `pm2 delete ${pm2Name}`;
+  const result = await ssh.execCommand(command);
+
+  if (result.code !== 0) {
+    const notFound = /not found|process or namespace not found/i.test(
+      result.stderr || "",
+    );
+    if (notFound) {
+      console.log(`[REMOTE] process ${pm2Name} was already stopped/absent`);
+      return { stopped: true, pm2Name, alreadyAbsent: true };
+    }
+    const err = new Error(
+      `Failed to stop process ${pm2Name} on remote host: ${result.stderr}`,
+    );
+    err.step = DEPLOYMENT_STEP.PROCESS_STOP;
+    throw err;
+  }
+
+  console.log(`[REMOTE] stopped process ${pm2Name}`);
+  return { stopped: true, pm2Name };
+}
+
+function resolvePm2Name(project, environment, slot) {
+  return `${project}-${environment}-${slot}`;
+}
+
 module.exports = {
   getLocalCurrentSlot,
   getTargetSlot,
@@ -103,4 +196,9 @@ module.exports = {
   switchToSlotLocal,
   switchToSlotSsh,
   getPreviousSlot,
+  resolvePm2Name,
+  startProcessLocal,
+  stopProcessLocal,
+  startProcessSsh,
+  stopProcessSsh,
 };
