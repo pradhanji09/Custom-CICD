@@ -26,6 +26,13 @@ const fastify = require("fastify")({
 
 //HOOKS
 fastify.addHook("onResponse", responseLoggerPlugin);
+fastify.route({
+  method: "GET",
+  url: "/",
+  handler: (request, reply) => {
+    reply.send("Hello World!");
+  },
+});
 
 //PLUGINS
 fastify.register(dbPlugin);

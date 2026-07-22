@@ -9,7 +9,7 @@ module.exports = async (fastify) => {
   fastify.route({
     method: "POST",
     url: "/webhook",
-    // preHandler: [isPushEventType, verifySignature],
+    preHandler: [isPushEventType, verifySignature],
     handler: handlers.deploymentWebhook,
   });
 
