@@ -59,99 +59,64 @@ async function deploymentWebhookService(
 
   try {
     // 4. Run deployment strategy
-    const strategy = deploymentStrategyFactory(
+    const strategyFactory = deploymentStrategyFactory(
       branchEnvironment.deployment_type,
     );
 
-    const {
-      success,
-      port,
-      host,
-      symlinkSwitcher,
-      currentSlot,
-      stopOldProcess,
-      closeConnection,
-    } = await strategy({
-      steps: branchEnvironment.steps,
-      context: {
-        deployPath: branchEnvironment.deploy_path,
-        ssh: branchEnvironment.ssh,
-        project: repoName,
-        environment: branchEnvironment.environment_name,
-        port: branchEnvironment.port,
-      },
+    const strategy = strategyFactory({
+      deployPath: branchEnvironment.deploy_path,
+      ssh: branchEnvironment.ssh,
+      project: repoName,
+      environment: branchEnvironment.environment_name,
+      port: branchEnvironment.port,
     });
 
-    // 5. Guard: strategy itself reported failure (non-zero exit code etc.)
-    if (!success) {
-      return await updateDeployment({
-        filter: { deployment_id },
-        input: {
-          status: DEPLOYMENT_STATUS.FAILED,
-          completed_at: new Date().toISOString(),
-          failed_step: DEPLOYMENT_STEP.DEPLOY_STEP,
-        },
-      });
-    }
+    try {
+      await strategy.build(branchEnvironment.steps);
+      await strategy.startProcess();
 
-    // 6. Health check (optional — only if configured)
-    const healthCheckConfig = branchEnvironment.health_check;
+      // 6. Health check (optional — only if configured)
+      const healthCheckConfig = branchEnvironment.health_check;
 
-    if (healthCheckConfig) {
-      // Port and host come from the strategy result, which resolves the blue/green slot.
-      const { healthy } = await runHealthChecker({
-        config: healthCheckConfig,
-        port,
-        host,
-      });
-
-      if (!healthy) {
-        await symlinkSwitcher(false);
-        closeConnection();
-        return await updateDeployment({
-          filter: { deployment_id },
-          input: {
-            status: DEPLOYMENT_STATUS.FAILED,
-            completed_at: new Date().toISOString(),
-            failed_step: DEPLOYMENT_STEP.HEALTH_CHECK,
-          },
+      if (healthCheckConfig) {
+        const { healthy } = await runHealthChecker({
+          config: healthCheckConfig,
+          port: strategy.getPort(),
+          host: strategy.getHost(),
         });
+
+        if (!healthy) {
+          await strategy.switchSymlink(false);
+          const err = new Error("Health check failed");
+          err.step = DEPLOYMENT_STEP.HEALTH_CHECK;
+          throw err;
+        }
       }
-    }
 
-    await symlinkSwitcher(true);
+      await strategy.switchSymlink(true);
 
-    // 6.5 Stop the OLD slot's process now that the new one is live and healthy.
-    // Non-fatal: the deployment already succeeded (symlink is live, new process
-    // is healthy). A failure here means manual pm2 cleanup is needed, but must
-    // not flip a successful deploy to FAILED.
-    if (currentSlot) {
       try {
-        await stopOldProcess(currentSlot);
+        await strategy.stopProcess();
       } catch (cleanupError) {
         console.error(
-          `[DEPLOYMENT] failed to stop old process for slot "${currentSlot}":`,
+          `[DEPLOYMENT] failed to stop old process:`,
           cleanupError.message,
         );
       }
+
+      // 7. All good
+      return await updateDeployment({
+        filter: { deployment_id },
+        input: {
+          status: DEPLOYMENT_STATUS.SUCCESS,
+          completed_at: new Date().toISOString(),
+        },
+      });
+    } finally {
+      strategy.close();
     }
-
-    closeConnection();
-
-    // 7. All good
-    return await updateDeployment({
-      filter: { deployment_id },
-      input: {
-        status: DEPLOYMENT_STATUS.SUCCESS,
-        completed_at: new Date().toISOString(),
-      },
-    });
   } catch (error) {
-    // switchToSlot errors are tagged with step = "RELEASE"; everything else is a DEPLOY_STEP failure
-    const failedStep =
-      error.step === DEPLOYMENT_STEP.RELEASE
-        ? DEPLOYMENT_STEP.RELEASE
-        : DEPLOYMENT_STEP.DEPLOY_STEP;
+    const failedStep = error.step || DEPLOYMENT_STEP.DEPLOY_STEP;
 
     console.error(
       `[DEPLOYMENT] failed at step "${failedStep}":`,

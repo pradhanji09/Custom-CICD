@@ -13,76 +13,51 @@ const path = require("path");
 const { DEPLOYMENT_STEP } = require("../../commons/constants/constants");
 const execPromise = util.promisify(exec);
 
-async function localDeploymentStrategy({ steps, context }) {
+function localDeploymentStrategy(context) {
   const { deployPath, project, environment, port } = context;
 
-  const currentSlot = await getLocalCurrentSlot(deployPath);
-  const targetSlot = getTargetSlot(currentSlot);
-  const targetPath = path.join(deployPath, targetSlot);
-  const targetPort = resolvePort(port, targetSlot);
-  const pm2Name = resolvePm2Name(project, environment, targetSlot);
-
-  console.log(
-    `[LOCAL] current slot: ${currentSlot ?? "none (first deploy)"} — deploying into: ${targetSlot} on port ${targetPort}`,
-  );
-
-  const executedSteps = [];
-
-  for (const step of steps) {
-    try {
-      const { stdout, stderr } = await execPromise(step, {
-        cwd: targetPath,
-        maxBuffer: 10 * 1024 * 1024, // Increasing to 10MB manually because Node.js default is 1MB
-      });
-
-      executedSteps.push({
-        command: step,
-        stdout,
-        stderr,
-        exitCode: 0,
-      });
-    } catch (error) {
-      // execPromise REJECTS (throws) when exit code is non-zero
-      // this is different behavior from node-ssh's execCommand!
-      executedSteps.push({
-        command: step,
-        stdout: error.stdout,
-        stderr: error.stderr,
-        exitCode: error.code,
-      });
-
-      return {
-        success: false,
-        strategy: "LOCAL",
-        failedAt: step,
-        executedSteps,
-      };
-    }
-  }
-
-  // Build steps succeeded — start the process for this slot before returning.
-  try {
-    await startProcessLocal({ targetPath, pm2Name, port: targetPort });
-  } catch (error) {
-    return {
-      success: false,
-      strategy: "LOCAL",
-      failedAt: DEPLOYMENT_STEP.PROCESS_START,
-      error: error.message,
-      executedSteps,
-    };
-  }
+  let currentSlot;
+  let targetSlot;
+  let targetPath;
+  let targetPort;
+  let pm2Name;
 
   return {
-    success: true,
-    strategy: "LOCAL",
-    executedSteps,
-    port: targetPort,
-    host: "localhost",
-    targetSlot,
-    currentSlot,
-    pm2Name,
-    symlinkSwitcher: async (shouldSwitch = false) => {
+    build: async (steps) => {
+      currentSlot = await getLocalCurrentSlot(deployPath);
+      targetSlot = getTargetSlot(currentSlot);
+      targetPath = path.join(deployPath, targetSlot);
+      targetPort = resolvePort(port, targetSlot);
+      pm2Name = resolvePm2Name(project, environment, targetSlot);
+
+      console.log(
+        `[LOCAL] current slot: ${currentSlot ?? "none (first deploy)"} — deploying into: ${targetSlot} on port ${targetPort}`,
+      );
+
+      for (const step of steps) {
+        try {
+          await execPromise(step, {
+            cwd: targetPath,
+            maxBuffer: 10 * 1024 * 1024, // Increasing to 10MB manually
+          });
+        } catch (err) {
+          err.step = DEPLOYMENT_STEP.DEPLOY_STEP;
+          throw err;
+        }
+      }
+    },
+
+    startProcess: async () => {
+      try {
+        await startProcessLocal({ targetPath, pm2Name, port: targetPort });
+      } catch (error) {
+        const err = new Error(error.message);
+        err.step = DEPLOYMENT_STEP.PROCESS_START;
+        throw err;
+      }
+    },
+
+    switchSymlink: async (shouldSwitch = true) => {
       if (!shouldSwitch) return;
       try {
         await switchToSlotLocal(deployPath, targetSlot);
@@ -91,9 +66,10 @@ async function localDeploymentStrategy({ steps, context }) {
         throw err;
       }
     },
-    stopOldProcess: async (oldSlot) => {
-      if (!oldSlot) return;
-      const oldPm2Name = resolvePm2Name(project, environment, oldSlot);
+
+    stopProcess: async () => {
+      if (!currentSlot) return;
+      const oldPm2Name = resolvePm2Name(project, environment, currentSlot);
       try {
         await stopProcessLocal(oldPm2Name);
       } catch (err) {
@@ -101,9 +77,10 @@ async function localDeploymentStrategy({ steps, context }) {
         throw err;
       }
     },
-    closeConnection: () => {
-      // no-op: LOCAL has no persistent connection to close
-    },
+
+    close: () => {},
+    getPort: () => targetPort,
+    getHost: () => "localhost",
   };
 }
 
