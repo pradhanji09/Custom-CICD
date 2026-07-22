@@ -20,11 +20,11 @@ const projectConfigSchema = {
           timeout: { type: "integer" },
           ssh: {
             type: "object",
-            required: ["host", "user", "privateKey"],
+            required: ["host", "username", "private_key_path"],
             properties: {
               host: { type: "string" },
-              user: { type: "string" },
-              privateKey: { type: "string" },
+              username: { type: "string" },
+              private_key_path: { type: "string" },
               port: { type: "integer", default: 22 },
             },
           },
@@ -34,10 +34,12 @@ const projectConfigSchema = {
           },
           health_check: {
             type: "object",
-            required: ["url"],
+            required: ["endpoint"],
             properties: {
-              url: { type: "string", format: "uri" },
+              endpoint: { type: "string" },
               timeout: { type: "integer", default: 5000 },
+              retries: { type: "integer", default: 2 },
+              expected_status: { type: "integer", default: 200 },
             },
           },
         },

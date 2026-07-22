@@ -1,3 +1,4 @@
+require("dotenv").config();
 const ajv = require("../commons/validator");
 const envSchema = require("../commons/schema/envSchema");
 
