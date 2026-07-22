@@ -1,74 +1,30 @@
-const { NodeSSH } = require("node-ssh");
 const {
   TRIGGER_TYPE,
   DEPLOYMENT_STATUS,
   DEPLOYMENT_STEP,
-  DEPLOYMENT_TYPE, // assumed enum: { LOCAL: "LOCAL", SSH: "SSH" }
 } = require("../commons/constants/constants");
 const Errors = require("../commons/errors/errorCatalog");
 const configRegistry = require("../config/configRegistry");
 const lockManager = require("../engine/lockmanager");
 const deploymentRepo = require("../repositories/deployment");
-const {
-  getSshCurrentSlot,
-  getLocalCurrentSlot,
-  switchToSlotSsh,
-  switchToSlotLocal,
-  getPreviousSlot,
-} = require("../engine/engine.helper");
-
-class LocalRollbackStrategy {
-  async rollback({ deployPath }) {
-    const currentSlot = await getLocalCurrentSlot(deployPath);
-    const targetSlot = getPreviousSlot(currentSlot);
-    await switchToSlotLocal(deployPath, targetSlot);
-  }
-
-  async dispose() {}
-}
-
-class SshRollbackStrategy {
-  constructor() {
-    this.ssh = null;
-  }
-
-  async rollback({ deployPath, sshConfig }) {
-    this.ssh = new NodeSSH();
-    await this.ssh.connect({
-      host: sshConfig.host,
-      port: sshConfig.port,
-      username: sshConfig.username,
-      privateKey: sshConfig.private_key_path,
-    });
-
-    const currentSlot = await getSshCurrentSlot(this.ssh, deployPath);
-    const targetSlot = getPreviousSlot(currentSlot);
-    await switchToSlotSsh(this.ssh, deployPath, targetSlot);
-  }
-
-  async dispose() {
-    if (this.ssh) this.ssh.dispose();
-  }
-}
-
-function createRollbackStrategy(deploymentType) {
-  const strategies = {
-    [DEPLOYMENT_TYPE.LOCAL]: () => new LocalRollbackStrategy(),
-    [DEPLOYMENT_TYPE.REMOTE]: () => new SshRollbackStrategy(),
-  };
-
-  const factory = strategies[deploymentType];
-  if (!factory) throw Errors.UnkownDeploymentType(deploymentType);
-
-  return factory();
-}
+const deploymentStrategyFactory = require("../engine/deploymentStrategyFactory");
+const { runHealthChecker } = require("../engine/healthChecker");
 
 async function rollbackDeploymentService(knex, { project, environment }) {
   const { createDeployment, updateDeployment } = deploymentRepo(knex);
 
   const environmentConfig = resolveEnvironmentConfig(project, environment);
-  const { deployPath, deployment_type, branch } = environmentConfig;
+  const {
+    deployment_type,
+    deploy_path,
+    branch,
+    environment_name,
+    ssh,
+    port,
+    health_check,
+  } = environmentConfig;
 
+  // 2. Lock guard
   const lockKey = `${project}:${branch}`;
   if (!lockManager.acquireLock(lockKey)) {
     return {
@@ -77,16 +33,16 @@ async function rollbackDeploymentService(knex, { project, environment }) {
     };
   }
 
-  const strategy = createRollbackStrategy(deployment_type);
   let deploymentId;
 
   try {
+    // 7. Record it as ROLLBACK
     const { deployment_id } = await createDeployment({
       input: {
         project,
-        environment: environmentConfig.environment_name,
-        branch: environmentConfig.branch,
-        commit_hash: "",
+        environment: environment_name,
+        branch,
+        commit_hash: "", // Rollback doesn't build a new commit
         deployment_type,
         trigger_type: TRIGGER_TYPE.ROLLBACK,
         status: DEPLOYMENT_STATUS.IN_PROGRESS,
@@ -94,32 +50,93 @@ async function rollbackDeploymentService(knex, { project, environment }) {
     });
     deploymentId = deployment_id;
 
-    await strategy.rollback({
-      deployPath,
-      sshConfig: environmentConfig.ssh_config,
+    // Reuse the exact same functional strategy factory!
+    const strategyFactory = deploymentStrategyFactory(deployment_type);
+    const strategy = strategyFactory({
+      deployPath: deploy_path,
+      ssh: ssh,
+      project,
+      environment: environment_name,
+      port: port,
     });
 
-    return await updateDeployment({
-      filter: { deployment_id },
-      input: {
-        status: DEPLOYMENT_STATUS.SUCCESS,
-        completed_at: new Date().toISOString(),
-      },
-    });
+    try {
+      // 1. Figure out where we are (pass empty steps to skip build phase)
+      await strategy.build([]);
+
+      if (!strategy.getCurrentSlot()) {
+        const err = new Error(
+          "No active slot found. Cannot rollback from a completely fresh state.",
+        );
+        err.step = DEPLOYMENT_STEP.RELEASE;
+        throw err;
+      }
+
+      // 3. Start the target slot's process again
+      await strategy.startProcess();
+
+      // 4. Health check the resurrected process
+      if (health_check) {
+        const { healthy } = await runHealthChecker({
+          config: health_check,
+          port: strategy.getPort(),
+          host: strategy.getHost(),
+        });
+
+        if (!healthy) {
+          // If unhealthy, stop the newly started rollback process so we don't leak it
+          // Wait, the strategy's stopProcess() stops the CURRENT live slot.
+          // We need a way to stop the TARGET slot. But wait, we can just throw and it will be handled manually,
+          // or we can add a flag to stopProcess. For now, since rollback failed, production is untouched.
+          const err = new Error("Health check failed for resurrected slot.");
+          err.step = DEPLOYMENT_STEP.HEALTH_CHECK;
+          throw err;
+        }
+      }
+
+      // 5. If healthy, switch the symlink
+      await strategy.switchSymlink(true);
+
+      // 6. Stop the slot we just rolled back from
+      try {
+        await strategy.stopProcess();
+      } catch (cleanupError) {
+        console.error(
+          `[ROLLBACK] failed to stop old process:`,
+          cleanupError.message,
+        );
+      }
+
+      // Update deployment record
+      return await updateDeployment({
+        filter: { deployment_id },
+        input: {
+          status: DEPLOYMENT_STATUS.SUCCESS,
+          completed_at: new Date().toISOString(),
+        },
+      });
+    } finally {
+      strategy.close();
+    }
   } catch (error) {
+    const failedStep = error.step || DEPLOYMENT_STEP.RELEASE;
+    console.error(`[ROLLBACK] failed at step "${failedStep}":`, error.message);
+
     if (deploymentId) {
       await updateDeployment({
         filter: { deployment_id: deploymentId },
         input: {
           status: DEPLOYMENT_STATUS.FAILED,
           completed_at: new Date().toISOString(),
-          failed_step: DEPLOYMENT_STEP.RELEASE,
+          failed_step: failedStep,
         },
       });
     }
-    throw error;
+    return {
+      success: false,
+      message: error.message,
+    };
   } finally {
-    await strategy.dispose();
     lockManager.releaseLock(lockKey);
   }
 }

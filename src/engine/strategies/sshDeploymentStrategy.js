@@ -93,6 +93,8 @@ function sshDeploymentStrategy(context) {
     getPort: () => targetPort,
 
     getHost: () => sshConfig.host,
+
+    getCurrentSlot: () => currentSlot,
   };
 }
 

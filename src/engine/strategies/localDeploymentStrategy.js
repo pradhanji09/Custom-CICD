@@ -81,6 +81,7 @@ function localDeploymentStrategy(context) {
     close: () => {},
     getPort: () => targetPort,
     getHost: () => "localhost",
+    getCurrentSlot: () => currentSlot,
   };
 }
 
