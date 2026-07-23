@@ -18,6 +18,9 @@ const envSchema = {
       enum: ["DEV", "PROD", "TEST"],
       default: "DEV",
     },
+    DB_FILE_PATH: {
+      type: "string",
+    },
   },
   additionalProperties: true,
 };

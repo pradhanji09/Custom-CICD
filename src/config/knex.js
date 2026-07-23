@@ -5,7 +5,7 @@ const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
 module.exports = {
   client: "sqlite3",
   connection: {
-    filename: path.join(PROJECT_ROOT, "data", "deployments.sqlite3"),
+    filename: path.join(PROJECT_ROOT, process.env.DB_FILE_PATH),
   },
   useNullAsDefault: true,
   migrations: {
