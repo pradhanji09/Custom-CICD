@@ -1,5 +1,5 @@
-const localDeploymentStrategy = require("./strategies/LocalDeploymentStrategy");
-const sshDeploymentStrategy = require("./strategies/SSHDeploymentStrategy");
+const localDeploymentStrategy = require("./strategies/localDeploymentStrategy");
+const sshDeploymentStrategy = require("./strategies/sshDeploymentStrategy");
 const Errors = require("../commons/errors/errorCatalog");
 
 function deploymentStrategyFactory(deploymentType) {
