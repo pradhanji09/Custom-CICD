@@ -70,8 +70,8 @@ It handles local or remote (AWS EC2 via SSH) execution, utilizes a zero-downtime
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/yourusername/forge.git
-   cd forge
+   git clone https://github.com/pradhanji09/Custom-CICD.git
+   cd Custom-CICD
    ```
 
 2. **Install dependencies:**
@@ -88,7 +88,7 @@ It handles local or remote (AWS EC2 via SSH) execution, utilizes a zero-downtime
 
 4. **Start the server:**
    ```bash
-   npm run start
+   npm run start:dev
    ```
 
 ### Environment Variables
