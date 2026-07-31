@@ -69,6 +69,7 @@ async function deploymentWebhookService(
       project: repoName,
       environment: branchEnvironment.environment_name,
       port: branchEnvironment.port,
+      entryPoint: branchEnvironment.entry_point,
     });
 
     try {

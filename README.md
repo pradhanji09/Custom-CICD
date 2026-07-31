@@ -43,7 +43,7 @@ It handles local or remote (AWS EC2 via SSH) execution, utilizes a zero-downtime
 
 1. **Trigger:** Developer pushes code to GitHub. GitHub sends a webhook payload to Forge.
 2. **Verification & Matching:** Forge verifies the HMAC signature, matches the repository and branch against the YAML config, and acquires a concurrency lock.
-3. **Execution:** Forge uses either a `LocalDeploymentStrategy` or `SSHDeploymentStrategy`. It identifies the inactive blue-green slot (e.g., `node-b` if `node-a` is live).
+3. **Execution:** Forge uses either a `LocalDeploymentStrategy` or `SSHDeploymentStrategy`. It identifies the inactive blue-green slot (e.g., `GREEN` if `BLUE` is live).
 4. **Build & Test:** Runs user-defined YAML steps (e.g., `git fetch`, `npm install`, `npm run build`) in the inactive slot.
 5. **Health Check:** Sends an HTTP request with retries to the newly deployed slot.
 6. **Traffic Switch:** If healthy, atomically updates the `pointer` symlink and stops the old slot. Nginx routes incoming traffic based on this pointer. If unhealthy, the deployment fails gracefully without affecting the live application.
@@ -119,7 +119,7 @@ environments:
     branch: main
     strategy: local
     blueGreen:
-      slots: [/var/www/node-a, /var/www/node-b]
+      slots: [/var/www/BLUE, /var/www/GREEN]
       pointer: /var/www/current
     healthCheck:
       url: http://localhost:8080/health

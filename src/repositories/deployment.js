@@ -1,4 +1,3 @@
-const { Knex } = require("knex");
 const { DEPLOYMENT, DEPLOYMENT_LOGS } = require("../commons/model");
 
 /**

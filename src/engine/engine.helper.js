@@ -11,7 +11,7 @@ async function getLocalCurrentSlot(deployPath) {
 
   try {
     let currentSlot = await fs.readlink(pointerPath);
-    return currentSlot; // node-a or node-b
+    return currentSlot; // BLUE or GREEN
   } catch (err) {
     if (err.code === "ENOENT") {
       // for the first deployment
@@ -23,8 +23,8 @@ async function getLocalCurrentSlot(deployPath) {
 
 function getPreviousSlot(currentSlot) {
   if (!currentSlot) throw Errors.NothingLive();
-  if (currentSlot === SLOT.A) return SLOT.B;
-  if (currentSlot === SLOT.B) return SLOT.A;
+  if (currentSlot === SLOT.BLUE) return SLOT.GREEN;
+  if (currentSlot === SLOT.GREEN) return SLOT.BLUE;
 
   throw Errors.InvalidCurrentSlot(currentSlot);
 }
@@ -42,9 +42,9 @@ async function getSshCurrentSlot(ssh, deployPath) {
 }
 
 function getTargetSlot(currentSlot) {
-  if (!currentSlot) return SLOT.A; // node-a
-  if (currentSlot === SLOT.A) return SLOT.B; // node-b
-  if (currentSlot === SLOT.B) return SLOT.A; //node-a
+  if (!currentSlot) return SLOT.BLUE; // BLUE
+  if (currentSlot === SLOT.BLUE) return SLOT.GREEN; // GREEN
+  if (currentSlot === SLOT.GREEN) return SLOT.BLUE; // BLUE
 
   throw Errors.InvalidCurrentSlot(currentSlot);
 }
@@ -59,8 +59,8 @@ function resolveTemplate(template, variables) {
 }
 
 function resolvePort(basePort, slot) {
-  if (slot === "node-a") return basePort;
-  if (slot === "node-b") return basePort + 1;
+  if (slot === SLOT.BLUE) return basePort;
+  if (slot === SLOT.GREEN) return basePort + 1;
 
   throw Errors.UnknownPort(slot);
 }

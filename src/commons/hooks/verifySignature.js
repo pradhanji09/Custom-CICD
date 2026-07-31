@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const env = require("../../config/env");
 const Errors = require("../errors/errorCatalog");
 
-function verifySignature(request, reply) {
+function verifySignature(request, _reply) {
   const signatureHeader = request.headers["x-hub-signature-256"];
   if (!signatureHeader) throw Errors.SignatureMissing();
 

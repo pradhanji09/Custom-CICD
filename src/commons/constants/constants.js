@@ -31,8 +31,8 @@ const TRIGGER_TYPE = {
 };
 
 const SLOT = {
-  A: "node-a",
-  B: "node-b",
+  BLUE: "BLUE",
+  GREEN: "GREEN",
 };
 
 module.exports = {
