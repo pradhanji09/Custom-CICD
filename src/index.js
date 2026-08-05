@@ -25,7 +25,9 @@ const fastify = require("fastify")({
               colorize: false,
             },
           }
-        : undefined,
+        : {
+            target: "pino-pretty",
+          },
   },
   requestIdHeader: "x-request-id",
   genReqId: (req) => req.headers["x-request-id"] || crypto.randomUUID(),
