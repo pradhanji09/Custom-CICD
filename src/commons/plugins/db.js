@@ -4,6 +4,7 @@ const config = require("../../config/knex");
 
 module.exports = fp(async (fastify) => {
   const db = knex(config);
+  fastify.log.info("Database connection established... %j", config?.connection);
 
   fastify.decorate("knex", db);
 
