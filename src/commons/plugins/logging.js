@@ -16,7 +16,6 @@ function responseLoggerPlugin(request, reply) {
   }
 
   const logData = {
-    requestId: request.id,
     clientIp: getClientIp(request),
     method: request.method,
     url: request.url,
@@ -28,6 +27,8 @@ function responseLoggerPlugin(request, reply) {
         userAgent: request.headers["user-agent"],
         contentType: request.headers["content-type"],
         xForwardedFor: request.headers["x-forwarded-for"] || null,
+        xGitHubEvent: request.headers["X-GitHub-Event"] || null,
+        xHubSignature256: request.headers["X-Hub-Signature-256"] || null,
       },
       params: Object.keys(request.params || {}).length
         ? request.params

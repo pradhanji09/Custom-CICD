@@ -3,7 +3,7 @@ const env = require("../../config/env");
 const Errors = require("../errors/errorCatalog");
 
 function verifySignature(request, _reply) {
-  const signatureHeader = request.headers["x-hub-signature-256"];
+  const signatureHeader = request.headers["X-Hub-Signature-256"];
   if (!signatureHeader) throw Errors.SignatureMissing();
 
   const { rawBody } = request;
