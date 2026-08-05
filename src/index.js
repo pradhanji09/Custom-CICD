@@ -6,9 +6,16 @@ const deploymentRoutes = require("./routes");
 const crypto = require("crypto");
 
 const fastify = require("fastify")({
+  trustProxy: env.NODE_ENV === "PROD" ? true : false,
   logger: {
     level: env.LOG_LEVEL,
-    redact: ["req.headers.authorization", "req.body.password"],
+    redact: [
+      "req.headers.authorization",
+      "req.headers.cookie",
+      "body.password",
+      "body.token",
+      "body.secret",
+    ],
     transport:
       env.NODE_ENV !== "PROD"
         ? {
